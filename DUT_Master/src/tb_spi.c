@@ -4,7 +4,7 @@
 
 #define SPI_DEV  DEVICE_DT_GET(DT_NODELABEL(spi1))
 
-const struct spi_config spi_cfg = {
+static const struct spi_config spi_cfg = {
     .frequency = 1000000,
     .operation = SPI_WORD_SET(8) | SPI_TRANSFER_MSB | SPI_OP_MODE_MASTER,
 };
