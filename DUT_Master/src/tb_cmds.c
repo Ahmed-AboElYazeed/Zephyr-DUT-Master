@@ -10,8 +10,11 @@ extern int cmd_adc_read(const struct shell *sh, size_t argc, char **argv);
 extern int parse_hex_args(size_t argc, char **argv, uint8_t *out, size_t max);
 extern int cmd_spi_transfer(const struct shell *sh, size_t argc, char **argv);
 
-int cmd_uart_send(const struct shell *sh, size_t argc, char **argv);
-int cmd_uart_recv(const struct shell *sh, size_t argc, char **argv);
+extern int cmd_uart_send(const struct shell *sh, size_t argc, char **argv);
+extern int cmd_uart_recv(const struct shell *sh, size_t argc, char **argv);
+ 
+extern int cmd_pwm_set(const struct shell *sh, size_t argc, char **argv);
+extern int cmd_pwm_capture(const struct shell *sh, size_t argc, char **argv);
 
 SHELL_STATIC_SUBCMD_SET_CREATE(sub_gpio,
     SHELL_CMD_ARG(set, NULL, "set <pin> <0|1>", cmd_gpio_set, 3, 0),
@@ -34,11 +37,18 @@ SHELL_STATIC_SUBCMD_SET_CREATE(sub_uart,
     SHELL_SUBCMD_SET_END
 );
 
+SHELL_STATIC_SUBCMD_SET_CREATE(sub_pwm,
+    SHELL_CMD_ARG(set,     NULL, "set <pin> <hz> <duty%>", cmd_pwm_set, 4, 0),
+    SHELL_CMD_ARG(capture, NULL, "capture <pin>",          cmd_pwm_capture, 1, 1),
+    SHELL_SUBCMD_SET_END
+);
+
 SHELL_STATIC_SUBCMD_SET_CREATE(sub_tb,
     SHELL_CMD(gpio,  &sub_gpio,  "GPIO control (set/get)",         NULL),
     SHELL_CMD(adc,   &sub_adc,   "ADC read (read)",                NULL),
     SHELL_CMD(spi,   &sub_spi,   "SPI transfer (trans)",            NULL),
     SHELL_CMD(uart,  &sub_uart,  "UART to DUT (send/recv)",        NULL),
+    SHELL_CMD(pwm,   &sub_pwm,   "PWM output and capture",         NULL),
     SHELL_SUBCMD_SET_END
 );
 

@@ -78,3 +78,27 @@
     pinctrl-0 = <&usart2_tx_pa2 &usart2_rx_pa3>;
     pinctrl-names = "default";
 };
+
+/* TIM1 CH1 on PA8 → PWM output to DUT */
+&timers1 {
+    status = "okay";
+    st,prescaler = <0>;
+
+    pwm1: pwm {
+        status = "okay";
+        pinctrl-0 = <&tim1_ch1_pa8>;
+        pinctrl-names = "default";
+    };
+};
+
+/* TIM2 CH2 on PA1 → PWM input capture from DUT */
+&timers2 {
+    status = "okay";
+    st,prescaler = <0>;
+
+    pwm2: pwm {
+        status = "okay";
+        pinctrl-0 = <&tim2_ch2_pa1>;
+        pinctrl-names = "default";
+    };
+};
