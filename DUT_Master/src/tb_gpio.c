@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include "tb_pinmap.h"
 
-static int cmd_gpio_set(const struct shell *sh, size_t argc, char **argv)
+int cmd_gpio_set(const struct shell *sh, size_t argc, char **argv)
 {
     if (argc != 3) {
         shell_error(sh, "ERROR: usage: tb gpio set <pin> <0|1>");
@@ -22,7 +22,7 @@ static int cmd_gpio_set(const struct shell *sh, size_t argc, char **argv)
     return 0;
 }
 
-static int cmd_gpio_get(const struct shell *sh, size_t argc, char **argv)
+int cmd_gpio_get(const struct shell *sh, size_t argc, char **argv)
 {
     if (argc != 2) {
         shell_error(sh, "ERROR: usage: tb gpio get <pin>");
@@ -38,16 +38,3 @@ static int cmd_gpio_get(const struct shell *sh, size_t argc, char **argv)
     shell_print(sh, "%d", val);
     return 0;
 }
-
-SHELL_STATIC_SUBCMD_SET_CREATE(sub_gpio,
-    SHELL_CMD_ARG(set, NULL, "set <pin> <0|1>", cmd_gpio_set, 3, 0),
-    SHELL_CMD_ARG(get, NULL, "get <pin>",       cmd_gpio_get, 2, 0),
-    SHELL_SUBCMD_SET_END
-);
-
-SHELL_STATIC_SUBCMD_SET_CREATE(sub_tb,
-    SHELL_CMD(gpio, &sub_gpio, "GPIO commands", NULL),
-    SHELL_SUBCMD_SET_END
-);
-
-SHELL_CMD_REGISTER(tb, &sub_tb, "Testbench root command", NULL);

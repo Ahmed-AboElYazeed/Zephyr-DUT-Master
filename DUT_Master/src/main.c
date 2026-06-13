@@ -3,10 +3,7 @@
 #include <zephyr/shell/shell_uart.h>
 
 int main(void)
-{
-    // const struct shell *sh = shell_backend_uart_get_ptr();
-    // if (sh) {
-    //     shell_echo_off(sh);
-    // }
+{    
+    printk("Testbench ready. Type 'help' or Start using 'tb'\n");
     return 0;
 }
