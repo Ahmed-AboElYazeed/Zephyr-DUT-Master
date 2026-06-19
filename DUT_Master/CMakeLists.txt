@@ -3,6 +3,7 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(testbench)
 
 target_include_directories(app PRIVATE include)
+target_include_directories(app PRIVATE src/dc_motor)
 
 target_sources(app PRIVATE
   src/main.c
@@ -13,5 +14,7 @@ target_sources(app PRIVATE
   src/tb_spi.c
   src/tb_uart.c
   src/tb_pwm.c
-#   src/tb_desc.c
+  
+  src/dc_motor/dc_motor_math.c
+  src/tb_motorsim.c
 )

@@ -1,5 +1,8 @@
 from .transport import ShellTransport
 
+from .motor_sim import MotorSim, rpm_to_pwm_duty, adc_voltage_to_motor_voltage
+import time
+
 class ZephyrShellLib:
     """Robot Framework library for the Zephyr shell testbench."""
 
@@ -76,3 +79,89 @@ class ZephyrShellLib:
     def pwm_get_duty(self, pin: str) -> int:
         """Convenience: return only the captured duty cycle in percent."""
         return self.pwm_capture(pin)["duty_pct"]
+    
+
+    def motorsim_start(self):
+        """Start the DC motor plant simulation."""
+        self._run("tb motorsim start")
+
+    def motorsim_stop(self):
+        """Stop the DC motor plant simulation."""
+        self._run("tb motorsim stop")
+
+    def motorsim_get(self) -> dict:
+        """Get current simulated speed (rpm) and current (A)."""
+        raw = self._run("tb motorsim get")
+        # "speed=123.45 rpm current=1.234 A"
+        parts = raw.replace("=", " ").split()
+        return {"speed_rpm": float(parts[1]), "current_a": float(parts[4])}
+    
+    def run_motor_test_sequence(self,
+                            ref_speeds=None,
+                            setpoint_duration_s=None,
+                            check_interval_s=None,
+                            error_limit_rpm=None,
+                            load_nm=None,
+                            adc_pin="PA0",
+                            pwm_pin="PA8") -> str:
+        """
+        Run the complete closed-loop motor test sequence.
+        
+        For each reference speed in ref_speeds:
+        - Set PWM duty to represent ref speed
+        - Every check_interval_s seconds:
+            a. Read DUT voltage output (ADC)
+            b. Run motor simulation with that voltage + load
+            c. Compare actual speed to reference
+            d. Log PASS/FAIL
+        
+        All parameters are optional — defaults come from class variables.
+        
+        Returns:
+            String like "PASS PASS FAIL PASS ..." (one per check)
+        """
+        # Use defaults if not provided
+        ref_speeds = ref_speeds or self.REF_SPEEDS_RPM
+        duration = setpoint_duration_s or self.SETPOINT_DURATION_S
+        interval = check_interval_s or self.CHECK_INTERVAL_S
+        limit = error_limit_rpm or self.SPEED_ERROR_LIMIT_RPM
+        load = load_nm if load_nm is not None else self.LOAD_TORQUE_NM
+        
+        # Reset simulation
+        self.motorsim_start()
+        self.motorsim_set_load(load)
+        
+        results = []
+        
+        for ref_rpm in ref_speeds:
+            self.motorsim_set_reference_speed(ref_rpm)
+            
+            # Run for setpoint_duration, checking every interval
+            elapsed = 0.0
+            while elapsed < duration:
+                time.sleep(interval)
+                elapsed += interval
+                
+                # 1. Read DUT voltage output (ADC)
+                adc_v = self.adc_read_voltage(adc_pin)
+                motor_v = adc_voltage_to_motor_voltage(adc_v)
+                
+                # 2. Run motor simulation
+                sim_result = self.motorsim_run_step(motor_v, interval)
+                actual_rpm = sim_result["speed_rpm"]
+                
+                # 3. Calculate error
+                error = abs(ref_rpm - actual_rpm)
+                passed = error < limit
+                
+                # 4. Log result
+                self._results_log.append((
+                    time.time(), ref_rpm, actual_rpm, error, passed
+                ))
+                results.append("PASS" if passed else "FAIL")
+                
+                # 5. Send actual speed back to DUT as feedback
+                feedback_duty = rpm_to_pwm_duty(actual_rpm)
+                self.pwm_set(pwm_pin, self.PWM_MAX_FREQ, feedback_duty)
+        
+        return " ".join(results)

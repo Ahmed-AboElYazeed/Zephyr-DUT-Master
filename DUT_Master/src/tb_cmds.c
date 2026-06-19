@@ -16,6 +16,11 @@ extern int cmd_uart_recv(const struct shell *sh, size_t argc, char **argv);
 extern int cmd_pwm_set(const struct shell *sh, size_t argc, char **argv);
 extern int cmd_pwm_capture(const struct shell *sh, size_t argc, char **argv);
 
+extern int cmd_motorsim_get(const struct shell *sh, size_t argc, char **argv);
+extern int cmd_motorsim_stop(const struct shell *sh, size_t argc, char **argv);
+extern int cmd_motorsim_start(const struct shell *sh, size_t argc, char **argv);
+
+
 SHELL_STATIC_SUBCMD_SET_CREATE(sub_gpio,
     SHELL_CMD_ARG(set, NULL, "set <pin> <0|1>", cmd_gpio_set, 3, 0),
     SHELL_CMD_ARG(get, NULL, "get <pin>",       cmd_gpio_get, 2, 0),
@@ -43,12 +48,20 @@ SHELL_STATIC_SUBCMD_SET_CREATE(sub_pwm,
     SHELL_SUBCMD_SET_END
 );
 
+SHELL_STATIC_SUBCMD_SET_CREATE(sub_motorsim,
+    SHELL_CMD_ARG(start, NULL, "start motor simulation", cmd_motorsim_start, 1, 0),
+    SHELL_CMD_ARG(stop,  NULL, "stop motor simulation",  cmd_motorsim_stop,  1, 0),
+    SHELL_CMD_ARG(get,   NULL, "get speed/current",       cmd_motorsim_get,   1, 0),
+    SHELL_SUBCMD_SET_END
+);
+
 SHELL_STATIC_SUBCMD_SET_CREATE(sub_tb,
     SHELL_CMD(gpio,  &sub_gpio,  "GPIO control (set/get)",         NULL),
     SHELL_CMD(adc,   &sub_adc,   "ADC read (read)",                NULL),
     SHELL_CMD(spi,   &sub_spi,   "SPI transfer (trans)",            NULL),
     SHELL_CMD(uart,  &sub_uart,  "UART to DUT (send/recv)",        NULL),
     SHELL_CMD(pwm,   &sub_pwm,   "PWM output and capture",         NULL),
+    SHELL_CMD(motorsim, &sub_motorsim, "DC motor plant simulation", NULL),
     SHELL_SUBCMD_SET_END
 );
 
