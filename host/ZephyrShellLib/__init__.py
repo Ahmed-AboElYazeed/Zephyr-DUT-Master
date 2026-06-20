@@ -1,167 +1,165 @@
-from .transport import ShellTransport
+"""
+ZephyrShellLib
 
-from .motor_sim import MotorSim, rpm_to_pwm_duty, adc_voltage_to_motor_voltage
+Robot Framework library for the Zephyr shell testbench (STM32F401CC
+Black Pill running Zephyr OS). Talks to the board's shell over a
+USB-TTL UART connection and exposes every `tb ...` shell command as a
+Robot Framework keyword.
+
+Combines:
+    PeripheralKeywords  -- GPIO, ADC, SPI, UART, PWM (Stage 8)
+    MotorSimKeywords    -- DC motor plant simulation (Stage 19)
+
+Connection-level features (Stage 11/12/13):
+    - heartbeat ping at connect time
+    - cached pin descriptor (`tb desc`)
+    - retry-on-timeout
+    - thread lock for parallel test runners (pabot)
+    - optional fixture file (per-DUT wiring descriptor, Stage 15)
+    - optional raw UART logging for post-mortem debugging (Stage 16)
+
+Usage in a .robot file:
+
+    *** Settings ***
+    Library    ZephyrShellLib    port=/dev/ttyUSB0    baud=115200
+
+    or, with a fixture file:
+
+    Library    ZephyrShellLib    fixture=fixture/sensor_board_fixture.yaml
+"""
+
+import functools
+import json
+import threading
 import time
 
-class ZephyrShellLib:
+from .transport import ShellTransport
+from .peripheral_keywords import PeripheralKeywords
+from .motorsim_keywords import MotorSimKeywords
+
+
+def requires_connection(fn):
+    """Decorator: raise a clear error if the keyword is called on a
+    closed connection, instead of a confusing pyserial exception."""
+    @functools.wraps(fn)
+    def wrapper(self, *args, **kwargs):
+        if not self._t.is_open:
+            raise ConnectionError(
+                "Serial port is closed. Was the library imported/opened correctly?"
+            )
+        return fn(self, *args, **kwargs)
+    return wrapper
+
+
+class ZephyrShellLib(PeripheralKeywords, MotorSimKeywords):
     """Robot Framework library for the Zephyr shell testbench."""
 
     ROBOT_LIBRARY_SCOPE = "SUITE"
 
-    def __init__(self, port: str, baud: int = 115200, timeout: float = 5.0):
-        self._t = ShellTransport(port, int(baud), float(timeout))
+    def __init__(self, port: str = None, baud: int = 115200, timeout: float = 5.0,
+                 retries: int = 1, fixture: str = None, logdir: str = None):
+        """
+        port:    serial device, e.g. /dev/ttyUSB0 or COM5.
+                 Optional if `fixture` provides testbench_port.
+        baud:    serial baud rate. Default 115200.
+        timeout: default per-command timeout in seconds.
+        retries: number of automatic retries on a command timeout.
+        fixture: optional path to a YAML wiring descriptor (Stage 15).
+                 If given and `port` is not, the port is read from
+                 the fixture file's `testbench_port` field.
+        logdir:  optional directory to write a timestamped raw
+                 TX/RX UART log file to (Stage 16).
+        """
+        self._lock = threading.Lock()
+        self._retries = int(retries)
+        self._fixture = None
 
-    # ── connection ─────────────────────────────────────────────────
+        if fixture:
+            from .fixture_loader import FixtureLoader
+            self._fixture = FixtureLoader(fixture)
+            if not port:
+                port = self._fixture.get_port()
+            print(self._fixture.summary())
+
+        if not port:
+            raise ValueError("Either 'port' or a 'fixture' with testbench_port must be given.")
+
+        self._t = ShellTransport(port, int(baud), float(timeout), logdir=logdir)
+        self.ping_testbench()
+        self._descriptor = self._fetch_descriptor()
+
+    # ── lifecycle ──────────────────────────────────────────────────
 
     def close(self):
-        """Close the serial port. Called automatically at suite teardown."""
+        """Close the serial port. Called automatically at suite teardown
+        if this keyword is wired into a Suite Teardown."""
         self._t.close()
 
-    # ── helpers ────────────────────────────────────────────────────
+    # ── fixture passthrough (Stage 15/17) ─────────────────────────
 
+    def get_fixture_pin(self, signal: str) -> str:
+        """Look up the testbench pin for a named signal in the loaded fixture."""
+        if not self._fixture:
+            raise RuntimeError("No fixture file was loaded for this library instance.")
+        return self._fixture.get_pin(signal)
+
+    def get_fixture_capability(self, name: str, default=False):
+        """Look up a capability flag from the loaded fixture (Stage 17)."""
+        if not self._fixture:
+            return default
+        return self._fixture.get_capability(name, default)
+
+    # ── internals used by both keyword mixins ─────────────────────
+
+    @requires_connection
     def _run(self, cmd: str, timeout: float = None) -> str:
-        result = self._t.run(cmd, timeout)
-        if result.startswith("ERROR:"):
-            raise RuntimeError(f"Testbench error: {result}")
-        return result
+        with self._lock:
+            return self._run_with_retry(cmd, timeout=timeout)
 
-    # ── GPIO ───────────────────────────────────────────────────────
+    def _run_with_retry(self, cmd: str, timeout: float = None) -> str:
+        last_exc = None
+        for attempt in range(self._retries + 1):
+            try:
+                result = self._t.run(cmd, timeout=timeout)
+                if result.startswith("ERROR:"):
+                    raise RuntimeError(f"Testbench error: {result}")
+                return result
+            except TimeoutError as e:
+                last_exc = e
+                if attempt < self._retries:
+                    # Flush a newline to clear any partial state, then retry
+                    try:
+                        self._t.raw_serial.write(b"\r\n")
+                        time.sleep(0.3)
+                        self._t.raw_serial.reset_input_buffer()
+                    except Exception:
+                        pass
+        raise last_exc
 
-    def gpio_set(self, pin: str, value):
-        """Drive GPIO *pin* to *value* (0 or 1)."""
-        self._run(f"tb gpio set {pin} {int(value)}")
+    def _fetch_descriptor(self) -> dict:
+        """Fetch the JSON pin descriptor from the firmware.
 
-    def gpio_get(self, pin: str) -> int:
-        """Read GPIO *pin*. Returns 0 or 1."""
-        return int(self._run(f"tb gpio get {pin}"))
-
-    # ── ADC ────────────────────────────────────────────────────────
-
-    def adc_read_mv(self, pin: str) -> int:
-        """Read ADC on *pin*. Returns integer millivolts."""
-        raw = self._run(f"tb adc read {pin}")   # "1842 mV"
-        return int(raw.split()[0])
-
-    # ── SPI ────────────────────────────────────────────────────────
-
-    def spi_transfer(self, bus, *hex_bytes: str) -> str:
-        """Transfer hex bytes over SPI *bus*. Returns received bytes as 'DE AD ...'"""
-        payload = " ".join(hex_bytes)
-        return self._run(f"tb spi trans {bus} {payload}")
-
-    # ── UART ───────────────────────────────────────────────────────
-
-    def uart_send(self, dev: str, text: str):
-        """Send *text* over testbench UART *dev* to the DUT."""
-        self._run(f"tb uart send {dev} {text}")
-
-    def uart_recv(self, dev: str, timeout_ms: int = 500) -> str:
-        """Receive a line from DUT over UART *dev*, waiting up to *timeout_ms*."""
-        return self._run(f"tb uart recv {dev} {timeout_ms}",
-                         timeout=float(timeout_ms) / 1000 + 2.0)
-
-    # ── PWM ────────────────────────────────────────────────────────
-
-    def pwm_set(self, pin: str, freq_hz: int, duty_pct: int):
-        """Start PWM on *pin* at *freq_hz* Hz and *duty_pct* % duty cycle."""
-        self._run(f"tb pwm set {pin} {freq_hz} {duty_pct}")
-
-    def pwm_capture(self, pin: str) -> dict:
-        """Capture PWM on *pin*. Returns dict with keys freq_hz and duty_pct."""
-        raw = self._run(f"tb pwm capture {pin}", timeout=3.0)
-        parts = raw.split()    # "999 Hz 49 pct"
-        return {"freq_hz": int(parts[0]), "duty_pct": int(parts[2])}
-
-    def pwm_get_freq(self, pin: str) -> int:
-        """Convenience: return only the captured frequency in Hz."""
-        return self.pwm_capture(pin)["freq_hz"]
-
-    def pwm_get_duty(self, pin: str) -> int:
-        """Convenience: return only the captured duty cycle in percent."""
-        return self.pwm_capture(pin)["duty_pct"]
-    
-
-    def motorsim_start(self):
-        """Start the DC motor plant simulation."""
-        self._run("tb motorsim start")
-
-    def motorsim_stop(self):
-        """Stop the DC motor plant simulation."""
-        self._run("tb motorsim stop")
-
-    def motorsim_get(self) -> dict:
-        """Get current simulated speed (rpm) and current (A)."""
-        raw = self._run("tb motorsim get")
-        # "speed=123.45 rpm current=1.234 A"
-        parts = raw.replace("=", " ").split()
-        return {"speed_rpm": float(parts[1]), "current_a": float(parts[4])}
-    
-    def run_motor_test_sequence(self,
-                            ref_speeds=None,
-                            setpoint_duration_s=None,
-                            check_interval_s=None,
-                            error_limit_rpm=None,
-                            load_nm=None,
-                            adc_pin="PA0",
-                            pwm_pin="PA8") -> str:
+        If the firmware does not implement `tb desc` (e.g. it returns
+        plain-text help instead), fall back to an empty descriptor so
+        the library can still be used. A warning is printed so the
+        user knows descriptor-dependent features won't work.
         """
-        Run the complete closed-loop motor test sequence.
-        
-        For each reference speed in ref_speeds:
-        - Set PWM duty to represent ref speed
-        - Every check_interval_s seconds:
-            a. Read DUT voltage output (ADC)
-            b. Run motor simulation with that voltage + load
-            c. Compare actual speed to reference
-            d. Log PASS/FAIL
-        
-        All parameters are optional — defaults come from class variables.
-        
-        Returns:
-            String like "PASS PASS FAIL PASS ..." (one per check)
-        """
-        # Use defaults if not provided
-        ref_speeds = ref_speeds or self.REF_SPEEDS_RPM
-        duration = setpoint_duration_s or self.SETPOINT_DURATION_S
-        interval = check_interval_s or self.CHECK_INTERVAL_S
-        limit = error_limit_rpm or self.SPEED_ERROR_LIMIT_RPM
-        load = load_nm if load_nm is not None else self.LOAD_TORQUE_NM
-        
-        # Reset simulation
-        self.motorsim_start()
-        self.motorsim_set_load(load)
-        
-        results = []
-        
-        for ref_rpm in ref_speeds:
-            self.motorsim_set_reference_speed(ref_rpm)
-            
-            # Run for setpoint_duration, checking every interval
-            elapsed = 0.0
-            while elapsed < duration:
-                time.sleep(interval)
-                elapsed += interval
-                
-                # 1. Read DUT voltage output (ADC)
-                adc_v = self.adc_read_voltage(adc_pin)
-                motor_v = adc_voltage_to_motor_voltage(adc_v)
-                
-                # 2. Run motor simulation
-                sim_result = self.motorsim_run_step(motor_v, interval)
-                actual_rpm = sim_result["speed_rpm"]
-                
-                # 3. Calculate error
-                error = abs(ref_rpm - actual_rpm)
-                passed = error < limit
-                
-                # 4. Log result
-                self._results_log.append((
-                    time.time(), ref_rpm, actual_rpm, error, passed
-                ))
-                results.append("PASS" if passed else "FAIL")
-                
-                # 5. Send actual speed back to DUT as feedback
-                feedback_duty = rpm_to_pwm_duty(actual_rpm)
-                self.pwm_set(pwm_pin, self.PWM_MAX_FREQ, feedback_duty)
-        
-        return " ".join(results)
+        try:
+            raw = self._t.run("tb desc", timeout=3.0)
+        except TimeoutError:
+            print("WARNING: `tb desc` timed out — using empty descriptor")
+            return {}
+
+        # If the response looks like a help menu instead of JSON,
+        # the firmware doesn't support the descriptor command.
+        stripped = raw.strip()
+        if not stripped or stripped.startswith("tb") or stripped.startswith("Subcommands:"):
+            print("WARNING: Firmware does not support `tb desc` — using empty descriptor")
+            return {}
+
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError as e:
+            # Log the raw response for debugging but don't crash
+            print(f"WARNING: Could not parse pin descriptor: {raw!r}")
+            return {}

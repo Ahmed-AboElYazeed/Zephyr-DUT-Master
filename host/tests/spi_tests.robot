@@ -1,7 +1,9 @@
 *** Settings ***
 Resource    resources/testbench.resource
-Suite Setup      Open Testbench
-Suite Teardown   Close Testbench
+
+Suite Setup       Open Testbench
+Suite Teardown    Close Testbench
+Test Teardown     Log UART History On Failure
 
 *** Test Cases ***
 

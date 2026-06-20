@@ -1,8 +1,10 @@
 *** Settings ***
 Resource    resources/testbench.resource
+Resource    resources/patterns_gpio.resource
 
-Suite Setup      Open Testbench
-Suite Teardown   Close Testbench
+Suite Setup       Open Testbench
+Suite Teardown    Close Testbench
+Test Teardown     Log UART History On Failure
 
 *** Test Cases ***
 
@@ -17,14 +19,7 @@ GPIO drives low
     Should Be Equal As Integers    ${val}    0
 
 GPIO toggle cycle
-    FOR    ${i}    IN RANGE    5
-        GPIO Set    PA5    1
-        ${h}=    GPIO Get    PB3
-        Should Be Equal As Integers    ${h}    1
-        GPIO Set    PA5    0
-        ${l}=    GPIO Get    PB3
-        Should Be Equal As Integers    ${l}    0
-    END
+    GPIO Toggle And Verify    PA5    PB3    cycles=5
 
 GPIO unknown pin raises error
     Run Keyword And Expect Error    *ERROR*    GPIO Get    BADPIN
