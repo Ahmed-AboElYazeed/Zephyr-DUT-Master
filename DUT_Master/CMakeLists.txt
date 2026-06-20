@@ -15,6 +15,7 @@ target_sources(app PRIVATE
   src/tb_uart.c
   src/tb_pwm.c
   
+  src/dc_motor_math_params.c
   src/dc_motor/dc_motor_math.c
   src/tb_motorsim.c
 )

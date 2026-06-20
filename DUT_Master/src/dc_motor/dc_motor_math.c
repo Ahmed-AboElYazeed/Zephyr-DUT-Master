@@ -23,18 +23,20 @@
 
 /* Exported data definition */
 
-/* ConstVolatile memory section */
-/* Definition for custom storage class: ConstVolatile */
-const volatile real_T dc_motor_math_Integrator1_IC = 0.0;/* Referenced by: '<Root>/Integrator1' */
-const volatile real_T dc_motor_math_Integrator_IC = 0.0;/* Referenced by: '<Root>/Integrator' */
-const volatile real_T dc_motor_math_J = 0.01;/* Referenced by: '<Root>/Inertia' */
-const volatile real_T dc_motor_math_K = 0.01;/* Referenced by:
-                                              * '<Root>/Ke'
-                                              * '<Root>/Kt'
-                                              */
-const volatile real_T dc_motor_math_L = 0.5;/* Referenced by: '<Root>/Inductance' */
-const volatile real_T dc_motor_math_R = 1.0;/* Referenced by: '<Root>/Resistance' */
-const volatile real_T dc_motor_math_b = 0.1;/* Referenced by: '<Root>/Damping' */
+// Commented by AboElyazeed: to change them in other file 
+
+// /* ConstVolatile memory section */
+// /* Definition for custom storage class: ConstVolatile */
+// const volatile real_T dc_motor_math_Integrator1_IC = 0.0;/* Referenced by: '<Root>/Integrator1' */
+// const volatile real_T dc_motor_math_Integrator_IC = 0.0;/* Referenced by: '<Root>/Integrator' */
+// const volatile real_T dc_motor_math_J = 0.01;/* Referenced by: '<Root>/Inertia' */
+// const volatile real_T dc_motor_math_K = 0.01;/* Referenced by:
+//                                               * '<Root>/Ke'
+//                                               * '<Root>/Kt'
+//                                               */
+// const volatile real_T dc_motor_math_L = 0.5;/* Referenced by: '<Root>/Inductance' */
+// const volatile real_T dc_motor_math_R = 1.0;/* Referenced by: '<Root>/Resistance' */
+// const volatile real_T dc_motor_math_b = 0.1;/* Referenced by: '<Root>/Damping' */
 
 /* Block signals (default storage) */
 B_dc_motor_math_T dc_motor_math_B;

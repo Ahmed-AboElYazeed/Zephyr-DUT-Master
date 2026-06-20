@@ -176,18 +176,20 @@ extern void dc_motor_math_terminate(void);
 
 /* Exported data declaration */
 
+// Changed by AboElyazeed: from "const volatile real_T" to modify them in other file 
+
 /* ConstVolatile memory section */
 /* Declaration for custom storage class: ConstVolatile */
-extern const volatile real_T dc_motor_math_Integrator1_IC;/* Referenced by: '<Root>/Integrator1' */
-extern const volatile real_T dc_motor_math_Integrator_IC;/* Referenced by: '<Root>/Integrator' */
-extern const volatile real_T dc_motor_math_J;/* Referenced by: '<Root>/Inertia' */
-extern const volatile real_T dc_motor_math_K;/* Referenced by:
+extern real_T dc_motor_math_Integrator1_IC;/* Referenced by: '<Root>/Integrator1' */
+extern real_T dc_motor_math_Integrator_IC;/* Referenced by: '<Root>/Integrator' */
+extern real_T dc_motor_math_J;/* Referenced by: '<Root>/Inertia' */
+extern real_T dc_motor_math_K;/* Referenced by:
                                               * '<Root>/Ke'
                                               * '<Root>/Kt'
                                               */
-extern const volatile real_T dc_motor_math_L;/* Referenced by: '<Root>/Inductance' */
-extern const volatile real_T dc_motor_math_R;/* Referenced by: '<Root>/Resistance' */
-extern const volatile real_T dc_motor_math_b;/* Referenced by: '<Root>/Damping' */
+extern real_T dc_motor_math_L;/* Referenced by: '<Root>/Inductance' */
+extern real_T dc_motor_math_R;/* Referenced by: '<Root>/Resistance' */
+extern real_T dc_motor_math_b;/* Referenced by: '<Root>/Damping' */
 
 /* Real-time Model object */
 extern RT_MODEL_dc_motor_math_T *const dc_motor_math_M;

@@ -19,6 +19,9 @@ extern int cmd_pwm_capture(const struct shell *sh, size_t argc, char **argv);
 extern int cmd_motorsim_get(const struct shell *sh, size_t argc, char **argv);
 extern int cmd_motorsim_stop(const struct shell *sh, size_t argc, char **argv);
 extern int cmd_motorsim_start(const struct shell *sh, size_t argc, char **argv);
+extern int cmd_motorsim_stream(const struct shell *sh, size_t argc, char **argv);
+extern int cmd_motorsim_source(const struct shell *sh, size_t argc, char **argv);
+extern int cmd_motorsim_params(const struct shell *sh, size_t argc, char **argv);
 
 
 SHELL_STATIC_SUBCMD_SET_CREATE(sub_gpio,
@@ -49,11 +52,20 @@ SHELL_STATIC_SUBCMD_SET_CREATE(sub_pwm,
 );
 
 SHELL_STATIC_SUBCMD_SET_CREATE(sub_motorsim,
-    SHELL_CMD_ARG(start, NULL, "start motor simulation", cmd_motorsim_start, 1, 0),
-    SHELL_CMD_ARG(stop,  NULL, "stop motor simulation",  cmd_motorsim_stop,  1, 0),
-    SHELL_CMD_ARG(get,   NULL, "get speed/current",       cmd_motorsim_get,   1, 0),
+    SHELL_CMD_ARG(start,  NULL, "start <adc|pwm> <pin> [vmax_mv]",  cmd_motorsim_start,  3, 1),
+    SHELL_CMD_ARG(stop,   NULL, "stop the simulation",              cmd_motorsim_stop,   1, 0),
+    SHELL_CMD_ARG(get,    NULL, "get current state (one-shot)",     cmd_motorsim_get,    1, 0),
+    SHELL_CMD_ARG(stream, NULL, "stream <on|off>",                  cmd_motorsim_stream, 2, 0),
+    SHELL_CMD_ARG(source, NULL, "source <adc|pwm> <pin>",           cmd_motorsim_source, 3, 0),
+    SHELL_CMD_ARG(params, NULL, "params <R> <L> <J> <K> <b>",       cmd_motorsim_params, 6, 0),
     SHELL_SUBCMD_SET_END
 );
+
+static int cmd_ping(const struct shell *sh, size_t argc, char **argv)
+{
+    shell_print(sh, "pong");
+    return 0;
+}
 
 SHELL_STATIC_SUBCMD_SET_CREATE(sub_tb,
     SHELL_CMD(gpio,  &sub_gpio,  "GPIO control (set/get)",         NULL),
@@ -62,6 +74,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(sub_tb,
     SHELL_CMD(uart,  &sub_uart,  "UART to DUT (send/recv)",        NULL),
     SHELL_CMD(pwm,   &sub_pwm,   "PWM output and capture",         NULL),
     SHELL_CMD(motorsim, &sub_motorsim, "DC motor plant simulation", NULL),
+    SHELL_CMD(ping, NULL, "Ping testbench", cmd_ping),
     SHELL_SUBCMD_SET_END
 );
 
