@@ -1,0 +1,65 @@
+# fixture/sensor_board_fixture.yaml
+# Describes the physical wiring between the testbench STM32 pins
+# and the DUT connector pins.
+
+dut_name: sensor_board
+dut_revision: "1.2"
+testbench_port: /dev/ttyUSB0
+
+capabilities:
+  has_spi: true
+  has_uart: true
+  has_adc_output: true
+  has_interrupt: false
+
+connections:
+  - tb_pin: PB3
+    dut_pin: RESET_N
+    signal: reset
+    direction: tb_out
+    note: active-low reset
+
+  - tb_pin: PB4
+    dut_pin: VDD_EN
+    signal: power_enable
+    direction: tb_out
+
+  - tb_pin: PA2
+    dut_pin: RXD
+    signal: uart_rx
+    direction: tb_out
+
+  - tb_pin: PA3
+    dut_pin: TXD
+    signal: uart_tx
+    direction: tb_in
+
+  - tb_pin: PA5
+    dut_pin: SCK
+    signal: spi_clk
+    direction: tb_out
+
+  - tb_pin: PA6
+    dut_pin: SDO
+    signal: spi_miso
+    direction: tb_in
+
+  - tb_pin: PA7
+    dut_pin: SDI
+    signal: spi_mosi
+    direction: tb_out
+
+  - tb_pin: PA4
+    dut_pin: CS_N
+    signal: spi_cs
+    direction: tb_out
+
+  - tb_pin: PA0
+    dut_pin: VOUT_ANALOG
+    signal: adc_sense
+    direction: tb_in
+
+  - tb_pin: PA1
+    dut_pin: PWM_CMD
+    signal: pwm_cmd
+    direction: tb_in
